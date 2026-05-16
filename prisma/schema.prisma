@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Centre {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String?
+  address     String?
+  city        String?
+  isActive    Boolean  @default(true)
+  trialEndsAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin     User?      @relation("CentreAdmin")
+  students  Student[]
+  teachers  Teacher[]
+  groups    Group[]
+  payments  Payment[]
+  settings  Setting[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  name           String
+  role           String   @default("CENTRE_ADMIN") // SUPER_ADMIN, CENTRE_ADMIN
+  centreId       String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  centre Centre? @relation("CentreAdmin", fields: [centreId], references: [id])
+
+  @@index([centreId])
+}
+
+model Student {
+  id         String   @id @default(cuid())
+  firstName  String
+  lastName   String
+  phone      String?
+  parentName String?
+  parentPhone String?
+  level      String?
+  centreId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  centre  Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  groups   GroupStudent[]
+}
+
+model Teacher {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  phone     String?
+  subject   String?
+  centreId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  centre Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  groups Group[]
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  level     String?
+  schedule  String?
+  centreId  String
+  teacherId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  centre   Centre         @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  teacher  Teacher?       @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  payments Payment[]
+  students GroupStudent[]
+}
+
+model GroupStudent {
+  id        String   @id @default(cuid())
+  groupId   String
+  studentId String
+  joinedAt  DateTime @default(now())
+
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, studentId])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Float
+  month     String
+  year      Int
+  isPaid    Boolean  @default(false)
+  paidAt    DateTime?
+  note      String?
+  centreId  String
+  studentId String
+  groupId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  centre  Centre  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+}
+
+model Setting {
+  id       String @id @default(cuid())
+  key      String
+  value    String
+  centreId String
+
+  centre Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@unique([centreId, key])
+}
