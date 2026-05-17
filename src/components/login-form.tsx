@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { signIn, getSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,35 +36,26 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
     setIsLoading(true)
 
     try {
-      // Step 1: Get CSRF token from NextAuth
-      const csrfRes = await fetch('/api/auth/csrf', { credentials: 'include' })
-      if (!csrfRes.ok) {
-        throw new Error('Failed to get CSRF token')
-      }
-      const { csrfToken } = await csrfRes.json()
-
-      // Step 2: POST signin with credentials
-      const signInRes = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          csrfToken,
-          email,
-          password,
-          callbackUrl: '/',
-        }),
-        credentials: 'include',
-        redirect: 'manual',
+      // Use NextAuth's official signIn function - handles CSRF and cookies properly
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       })
 
-      // Step 3: Check session after signin
-      const sessionRes = await fetch('/api/auth/session', { credentials: 'include' })
-      if (sessionRes.ok) {
-        const session = await sessionRes.json()
-        if (session?.user) {
-          onLogin(session)
-          return
-        }
+      if (result?.error) {
+        setError('البريد الإلكتروني أو كلمة المرور غير صحيحة')
+        return
+      }
+
+      // Small delay to ensure cookie is set
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      // Verify session after signin
+      const session = await getSession()
+      if (session?.user) {
+        onLogin(session as SessionData)
+        return
       }
 
       setError('البريد الإلكتروني أو كلمة المرور غير صحيحة')
