@@ -67,16 +67,7 @@ export async function POST(req: NextRequest) {
     const trialEndsAt = new Date()
     trialEndsAt.setHours(trialEndsAt.getHours() + hours)
 
-    // Create user first, then centre
-    const user = await db.user.create({
-      data: {
-        email: adminEmail,
-        password: hashedPassword,
-        name: adminName,
-        role: 'CENTRE_ADMIN',
-      },
-    })
-
+    // Create centre first, then user linked to it
     const centre = await db.centre.create({
       data: {
         name,
@@ -85,22 +76,23 @@ export async function POST(req: NextRequest) {
         address: address || null,
         city: city || null,
         trialEndsAt,
-        adminId: user.id,
-      },
-      include: {
-        admin: {
-          select: { id: true, name: true, email: true },
-        },
       },
     })
 
-    // Link user to centre
-    await db.user.update({
-      where: { id: user.id },
-      data: { centreId: centre.id },
+    const user = await db.user.create({
+      data: {
+        email: adminEmail,
+        password: hashedPassword,
+        name: adminName,
+        role: 'CENTRE_ADMIN',
+        centreId: centre.id,
+      },
     })
 
-    return NextResponse.json(centre, { status: 201 })
+    return NextResponse.json({
+      ...centre,
+      admin: { id: user.id, name: user.name, email: user.email },
+    }, { status: 201 })
   } catch (error) {
     console.error('POST /api/centres error:', error)
     return NextResponse.json({ error: 'Failed to create centre' }, { status: 500 })
